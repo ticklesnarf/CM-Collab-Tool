@@ -1,0 +1,341 @@
+<script>
+  /**
+   * Handles form submission
+   * @return {boolean} False to prevent default form submission
+   */
+  function submitForm() {
+    // Show loading spinner
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('form-container').classList.add('hidden');
+    
+    // Validate form
+    if (!validateForm()) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('form-container').classList.remove('hidden');
+      return false;
+    }
+    
+    // Collect form data
+    const formData = {
+      communityName: document.getElementById('communityName').value,
+      pastedData: document.getElementById('pastedData').value,
+      sheetLink: document.getElementById('sheetLink').value,
+      submitterDiscordName: document.getElementById('submitterDiscordName').value,
+      submitterDiscordId: document.getElementById('submitterDiscordId').value
+    };
+    
+    // Call server-side function to process the form
+    google.script.run
+      .withSuccessHandler(handleSuccess)
+      .withFailureHandler(handleFailure)
+      .processForm(formData);
+    
+    return false; // Prevent form submission
+  }
+  
+  /**
+   * Validates the form inputs
+   * @return {boolean} Whether the form is valid
+   */
+  function validateForm() {
+    // Required fields
+    const requiredFields = [
+      'communityName',
+      'pastedData',
+      'submitterDiscordName',
+      'submitterDiscordId'
+    ];
+    
+    let isValid = true;
+    
+    // Check each required field
+    for (const fieldId of requiredFields) {
+      const field = document.getElementById(fieldId);
+      if (!field.value.trim()) {
+        field.classList.add('error');
+        isValid = false;
+      } else {
+        field.classList.remove('error');
+      }
+    }
+    
+    // Validate pasted data format
+    const pastedData = document.getElementById('pastedData').value.trim();
+    if (pastedData) {
+      const rows = pastedData.split(/\r?\n/);
+      if (rows.length === 0) {
+        showError('Pasted data appears to be empty.');
+        isValid = false;
+      }
+      
+      // Check if at least one row has minimum required data
+      let hasValidRow = false;
+      for (const row of rows) {
+        const columns = row.split(/[\t,]/);
+        if (columns.length >= 2 && (columns[0].trim() || columns[1].trim())) {
+          hasValidRow = true;
+          break;
+        }
+      }
+      
+      if (!hasValidRow) {
+        showError('Pasted data must contain at least Discord Name or Discord ID.');
+        isValid = false;
+      }
+    }
+    
+    // Validate Discord ID format (numeric)
+    const discordId = document.getElementById('submitterDiscordId').value.trim();
+    if (discordId && !/^\d+$/.test(discordId)) {
+      showError('Discord ID should contain only numbers.');
+      document.getElementById('submitterDiscordId').classList.add('error');
+      isValid = false;
+    }
+    
+    return isValid;
+  }
+  
+  /**
+   * Handles successful form submission
+   * @param {Object} response - The response from the server
+   */
+  function handleSuccess(response) {
+    document.getElementById('loading').classList.add('hidden');
+    
+    const resultContainer = document.getElementById('result-container');
+    const resultContent = document.getElementById('result-content');
+    
+    resultContainer.classList.remove('hidden');
+    
+    if (response.success) {
+      resultContent.innerHTML = `
+        <div class="success-message">
+          <h2>✅ Success!</h2>
+          <p>${response.message}</p>
+          <p>Processed ${response.rowCount} rows of data.</p>
+        </div>
+      `;
+    } else {
+      resultContent.innerHTML = `
+        <div class="error-message">
+          <h2>❌ Error</h2>
+          <p>${response.message}</p>
+        </div>
+      `;
+    }
+  }
+  
+  /**
+   * Handles failed form submission
+   * @param {Object} error - The error from the server
+   */
+  function handleFailure(error) {
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('form-container').classList.remove('hidden');
+    
+    showError('An error occurred: ' + error.message);
+  }
+  
+  /**
+   * Shows an error message
+   * @param {string} message - The error message to display
+   */
+  function showError(message) {
+    const errorDiv = document.getElementById('error-message');
+    
+    if (!errorDiv) {
+      const newErrorDiv = document.createElement('div');
+      newErrorDiv.id = 'error-message';
+      newErrorDiv.className = 'error-message';
+      newErrorDiv.innerHTML = message;
+      
+      const formActions = document.querySelector('.form-actions');
+      formActions.parentNode.insertBefore(newErrorDiv, formActions);
+    } else {
+      errorDiv.innerHTML = message;
+      errorDiv.style.display = 'block';
+    }
+    
+    // Scroll to error message
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+  
+  /**
+   * Clears the form
+   */
+  function clearForm() {
+    document.getElementById('data-form').reset();
+    
+    // Clear preview
+    document.getElementById('preview-table').classList.add('hidden');
+    document.querySelector('.preview-placeholder').style.display = 'block';
+    
+    // Remove error styling
+    const errorFields = document.querySelectorAll('.error');
+    errorFields.forEach(field => field.classList.remove('error'));
+    
+    // Remove error message
+    const errorDiv = document.getElementById('error-message');
+    if (errorDiv) {
+      errorDiv.style.display = 'none';
+    }
+  }
+  
+  /**
+   * Shows the form again after submission
+   */
+  function showForm() {
+    document.getElementById('result-container').classList.add('hidden');
+    document.getElementById('form-container').classList.remove('hidden');
+    clearForm();
+  }
+  
+  /**
+   * Generates a preview of the pasted data
+   */
+  function generatePreview() {
+    const pastedData = document.getElementById('pastedData').value.trim();
+    const previewTable = document.getElementById('preview-table');
+    const previewBody = document.getElementById('preview-body');
+    const previewPlaceholder = document.querySelector('.preview-placeholder');
+    
+    // Clear previous preview
+    previewBody.innerHTML = '';
+    
+    if (!pastedData) {
+      previewTable.classList.add('hidden');
+      previewPlaceholder.style.display = 'block';
+      return;
+    }
+    
+    // Split into rows
+    const rows = pastedData.split(/\r?\n/);
+    if (rows.length === 0) return;
+    
+    // Determine delimiter
+    const firstRow = rows[0];
+    let delimiter = '\t'; // Default to tab
+    
+    if (firstRow.includes(',') && !firstRow.includes('\t')) {
+      delimiter = ',';
+    }
+    
+    // Check if first row is headers
+    const hasHeaders = checkForHeaders(firstRow, delimiter);
+    const startRow = hasHeaders ? 1 : 0;
+    
+    // Generate preview (max 20 rows)
+    const maxPreviewRows = Math.min(20, rows.length - startRow);
+    
+    for (let i = startRow; i < startRow + maxPreviewRows; i++) {
+      if (i >= rows.length) break;
+      
+      const row = rows[i].trim();
+      if (row === '') continue;
+      
+      const columns = row.split(delimiter);
+      
+      const tr = document.createElement('tr');
+      
+      // Add cells (max 6 columns)
+      for (let j = 0; j < Math.min(6, columns.length); j++) {
+        const td = document.createElement('td');
+        td.textContent = columns[j] || '';
+        tr.appendChild(td);
+      }
+      
+      // Add empty cells if needed
+      for (let j = columns.length; j < 6; j++) {
+        const td = document.createElement('td');
+        td.textContent = '';
+        tr.appendChild(td);
+      }
+      
+      previewBody.appendChild(tr);
+    }
+    
+    // Show preview table
+    previewTable.classList.remove('hidden');
+    previewPlaceholder.style.display = 'none';
+    
+    // Add message if there are more rows
+    if (rows.length - startRow > maxPreviewRows) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 4;
+      td.className = 'preview-more';
+      td.textContent = `... and ${rows.length - startRow - maxPreviewRows} more rows`;
+      tr.appendChild(td);
+      previewBody.appendChild(tr);
+    }
+  }
+  
+  /**
+   * Checks if the first row contains headers
+   * @param {string} firstRow - The first row of data
+   * @param {string} delimiter - The delimiter used in the data
+   * @return {boolean} Whether the first row appears to contain headers
+   */
+  function checkForHeaders(firstRow, delimiter) {
+    const columns = firstRow.split(delimiter);
+    
+    // Check if any column contains typical header names
+    const headerKeywords = ['discord', 'name', 'id', 'twitter', 'wallet', 'address'];
+    
+    for (const column of columns) {
+      const lowerColumn = column.toLowerCase();
+      for (const keyword of headerKeywords) {
+        if (lowerColumn.includes(keyword)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Test function to validate the data processing
+   */
+  function testDataProcessing() {
+    const pastedData = document.getElementById('pastedData').value.trim();
+    
+    if (!pastedData) {
+      showError('Please paste data to test.');
+      return;
+    }
+    
+    google.script.run
+      .withSuccessHandler(function(result) {
+        console.log('Test results:', result);
+        alert(
+          'Test Results:\n' +
+          '- Input rows: ' + result.inputRows + '\n' +
+          '- Processed rows: ' + result.processedRows + '\n' +
+          '- Sample row: ' + (result.sampleRow ? JSON.stringify(result.sampleRow) : 'None')
+        );
+      })
+      .withFailureHandler(function(error) {
+        console.error('Test error:', error);
+        showError('Test error: ' + error.message);
+      })
+      .testDataProcessing(pastedData);
+  }
+  
+  // Add event listeners when the page loads
+  window.addEventListener('load', function() {
+    // Generate preview when data is pasted
+    document.getElementById('pastedData').addEventListener('input', generatePreview);
+    
+    // Add test button for development
+    if (window.location.search.includes('debug=true')) {
+      const formActions = document.querySelector('.form-actions');
+      const testButton = document.createElement('button');
+      testButton.type = 'button';
+      testButton.id = 'test-button';
+      testButton.textContent = 'Test Data Processing';
+      testButton.onclick = testDataProcessing;
+      formActions.appendChild(testButton);
+    }
+  });
+</script>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Community Data Collection Tool</title>
+    <?!= include('Stylesheet'); ?>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Community Data Collection Tool</h1>
+        <p class="subtitle">Easily submit community member data from spreadsheets</p>
+      </header>
+      
+      <div id="loading" class="hidden">
+        <div class="spinner"></div>
+        <p>Processing your data...</p>
+      </div>
+      
+      <div id="form-container">
+        <form id="data-form" onsubmit="return submitForm()">
+          <div class="form-section">
+            <h2>Community Information</h2>
+            
+            <div class="form-group">
+              <label for="communityName">Community Name *</label>
+              <input type="text" id="communityName" name="communityName" required>
+              <p class="help-text">
+                Enter the name of the community you're submitting data for
+              </p>
+            </div>
+          </div>
+          
+          <div class="form-section">
+            <h2>Spreadsheet Data</h2>
+            <p class="instructions">
+              When submitting the sheet information, you must have the following column headers in your submission in the following order:
+              <span class="highlight">Discord Name, Discord ID, Twitter Name, Wallet Address, Phase (GTD/FCFS), Spot Type (Community)</span>
+            </p>
+            <p class="instructions">
+              If you are missing information (for example, Twitter Name), you can leave that blank but you must have the column in your sheet for the submission to work correctly.
+            </p>
+            
+            <div class="form-group">
+              <label for="pastedData">Paste Spreadsheet Data *</label>
+              <textarea id="pastedData" name="pastedData" rows="10" required></textarea>
+              <p class="help-text">
+                You can paste data with or without headers. The tool will automatically detect the format.
+              </p>
+            </div>
+            
+            <div class="data-preview">
+              <h3>Data Preview</h3>
+              <div id="preview-container">
+                <p class="preview-placeholder">Data preview will appear here after pasting</p>
+                <table id="preview-table" class="hidden">
+                  <thead>
+                    <tr>
+                      <th>Discord Name</th>
+                      <th>Discord ID</th>
+                      <th>Twitter Name</th>
+                      <th>Wallet Address</th>
+                      <th>Phase</th>
+                      <th>Spot Type</th>
+                    </tr>
+                  </thead>
+                  <tbody id="preview-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-section">
+            <h2>Source Information</h2>
+            <p class="instructions">
+              Please provide the link to your source Google Sheet (optional).
+            </p>
+            
+            <div class="form-group">
+              <label for="sheetLink">Google Sheet Link</label>
+              <input type="text" id="sheetLink" name="sheetLink" placeholder="https://docs.google.com/spreadsheets/d/...">
+              <p class="help-text">
+                This will be stored with your submission for reference
+              </p>
+            </div>
+          </div>
+          
+          <div class="form-section">
+            <h2>Submitter Information</h2>
+            <p class="instructions">
+              Please provide your Discord information for validation.
+            </p>
+            
+            <div class="form-group">
+              <label for="submitterDiscordName">Your Discord Name *</label>
+              <input type="text" id="submitterDiscordName" name="submitterDiscordName" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="submitterDiscordId">Your Discord ID *</label>
+              <input type="text" id="submitterDiscordId" name="submitterDiscordId" required>
+              <p class="help-text">
+                To find your Discord ID, enable Developer Mode in Discord settings, then right-click on your name and select "Copy ID"
+              </p>
+            </div>
+          </div>
+          
+          <div class="form-actions">
+            <button type="submit" id="submit-button">Submit Data</button>
+            <button type="button" id="clear-button" onclick="clearForm()">Clear Form</button>
+          </div>
+        </form>
+      </div>
+      
+      <div id="result-container" class="hidden">
+        <div id="result-content"></div>
+        <button type="button" id="back-button" onclick="showForm()">Submit More Data</button>
+      </div>
+      
+      <footer>
+        <p>Community Data Collection Tool | Created with Google Apps Script</p>
+      </footer>
+    </div>
+    
+    <?!= include('JavaScript'); ?>
+  </body>
+</html>
